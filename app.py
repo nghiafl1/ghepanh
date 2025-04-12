@@ -102,4 +102,24 @@ def upload_images():
 
             # Ghép ảnh (không pha trộn phức tạp để tối ưu hiệu suất)
             result = np.zeros_like(img1_warped)
-            result = cv2.bitwise_or(result, cv2.bitwise_and(img1_warped, mask1
+            result = cv2.bitwise_or(result, cv2.bitwise_and(img1_warped, mask1))
+            result = cv2.bitwise_or(result, cv2.bitwise_and(img2_warped, mask2))
+            
+            # Pha trộn vùng chồng lấn (linear blending)
+            overlap_area = cv2.bitwise_and(img1_warped, img2_warped, mask=overlap)
+            alpha = 0.5
+            overlap_area = cv2.addWeighted(img1_warped, alpha, img2_warped, 1 - alpha, 0, mask=overlap)
+            result = cv2.bitwise_or(result, overlap_area)
+
+        # Chuyển ảnh thành base64
+        _, buffer = cv2.imencode('.jpg', result)
+        image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+        # Trả về dữ liệu base64
+        return jsonify({'result': f'data:image/jpeg;base64,{image_base64}'})
+
+    except Exception as e:
+        return jsonify({'error': f'Đã xảy ra lỗi: {str(e)}'})
+
+if __name__ == '__main__':
+    app.run(debug=True)
