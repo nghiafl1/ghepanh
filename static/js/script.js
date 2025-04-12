@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let files = [];
     
-    // Hàm làm mới giao diện
     const resetInterface = () => {
         files = [];
         selectedImages.innerHTML = '';
@@ -19,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         noResult.style.display = 'block';
         stitchBtn.disabled = true;
         newStitchBtn.style.display = 'none';
-        imageUpload.value = ''; // Xóa giá trị của input file
+        imageUpload.value = '';
     };
     
     imageUpload.addEventListener('change', (e) => {
@@ -32,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedImages.appendChild(img);
         });
 
-        // Kích hoạt nút "Ghép Ảnh" nếu đã chọn ít nhất 2 ảnh
         if (files.length >= 2) {
             stitchBtn.disabled = false;
             noResult.textContent = 'Sẵn sàng để ghép ảnh.';
@@ -45,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     stitchBtn.addEventListener('click', async (event) => {
-        event.preventDefault(); // Ngăn chặn hành vi mặc định
+        event.preventDefault();
 
         if (files.length < 2) {
             noResult.textContent = 'Vui lòng chọn ít nhất hai ảnh.';
@@ -71,27 +69,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.error) {
                 noResult.textContent = data.error;
                 noResult.style.color = '#ff4d4d';
-                newStitchBtn.style.display = 'inline-block'; // Hiển thị nút "Ghép Ảnh Mới" ngay cả khi có lỗi
+                newStitchBtn.style.display = 'inline-block';
                 return;
             }
             
             noResult.style.display = 'none';
-            resultImage.src = data.result;
+            resultImage.src = data.result; // Dữ liệu base64
             resultImage.style.display = 'block';
             
-            // Hiển thị nút "Ghép Ảnh Mới" sau khi ghép thành công
             newStitchBtn.style.display = 'inline-block';
         } catch (error) {
             noResult.textContent = 'Đã xảy ra lỗi: ' + error.message;
             noResult.style.color = '#ff4d4d';
-            newStitchBtn.style.display = 'inline-block'; // Hiển thị nút "Ghép Ảnh Mới" ngay cả khi có lỗi
+            newStitchBtn.style.display = 'inline-block';
         } finally {
             stitchBtn.disabled = false;
             stitchBtn.textContent = 'Ghép Ảnh';
         }
     });
 
-    // Xử lý sự kiện click của nút "Ghép Ảnh Mới"
     newStitchBtn.addEventListener('click', (event) => {
         event.preventDefault();
         resetInterface();

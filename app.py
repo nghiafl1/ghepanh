@@ -2,13 +2,10 @@ from flask import Flask, request, jsonify, render_template
 import cv2
 import numpy as np
 import os
-import glob
-import time
+import base64
 from io import BytesIO
 
 app = Flask(__name__)
-RESULT_FOLDER = 'static/results'
-os.makedirs(RESULT_FOLDER, exist_ok=True)
 
 @app.route('/')
 def index():
@@ -26,7 +23,6 @@ def upload_images():
     images = []
     for file in files:
         if file:
-            # Đọc ảnh trực tiếp từ file mà không lưu vào đĩa
             file_bytes = file.read()
             nparr = np.frombuffer(file_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -50,15 +46,20 @@ def upload_images():
             }.get(status, 'Lỗi không xác định.')
             return jsonify({'error': error_msg})
 
-        # Xóa các ảnh kết quả cũ (giữ lại trong 1 giờ)
-        current_time = time.time()
-        for old_file in glob.glob(os.path.join(RESULT_FOLDER, "*.jpg")):
-            if os.path.getmtime(old_file) < current_time - 3600:  # 1 giờ = 3600 giây
-                os.remove(old_file)
+        # Lưu ảnh tạm thời vào /tmp
+        temp_path = '/tmp/result.jpg'
+        cv2.imwrite(temp_path, pano)
 
-        result_path = os.path.join(RESULT_FOLDER, 'result.jpg')
-        cv2.imwrite(result_path, pano)
-        return jsonify({'result': '/static/results/result.jpg'})
+        # Đọc ảnh và chuyển thành base64
+        with open(temp_path, 'rb') as f:
+            image_data = f.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+
+        # Xóa tệp tạm
+        os.remove(temp_path)
+
+        # Trả về dữ liệu base64
+        return jsonify({'result': f'data:image/jpeg;base64,{image_base64}'})
 
     except Exception as e:
         return jsonify({'error': f'Đã xảy ra lỗi: {str(e)}'})
