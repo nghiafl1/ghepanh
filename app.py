@@ -28,28 +28,14 @@ def upload_images():
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if img is None:
                 return jsonify({'error': f'Không thể đọc ảnh: {file.filename}'})
-            # Resize ảnh để giảm tải xử lý
-            img = cv2.resize(img, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
             images.append(img)
 
     try:
-        # Sử dụng chế độ PANORAMA để tối ưu hóa cho ảnh panorama
-        stitcher = cv2.Stitcher_create(cv2.Stitcher_PANORAMA)
+        stitcher = cv2.Stitcher_create()
+        stitcher.setPanoConfidenceThresh(0.1)
+        stitcher.setWaveCorrection(False)
+        stitcher.setSeamEstimationResol(0.1)
         
-        # Tùy chỉnh tham số để tăng khả năng thành công
-        stitcher.setPanoConfidenceThresh(0.3)  # Giảm ngưỡng để chấp nhận nhiều đặc điểm hơn
-        stitcher.setWaveCorrection(True)      # Bật chỉnh sóng để cải thiện chất lượng
-        stitcher.setSeamEstimationResol(0.1)  # Độ phân giải ước lượng đường nối
-        
-        # Thêm bước tiền xử lý ảnh
-        for i, img in enumerate(images):
-            # Chuyển sang ảnh xám để tìm đặc điểm
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            # Tăng độ tương phản
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-            gray = clahe.apply(gray)
-            images[i] = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-
         status, pano = stitcher.stitch(images)
 
         if status != cv2.Stitcher_OK:
