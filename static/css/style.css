@@ -1,0 +1,245 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #1f2122;
+    color: #ffffff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar {
+    background-color: #1f2122;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.navbar-brand {
+    font-weight: 600;
+    color: #ffffff !important;
+}
+
+.nav-link {
+    color: #ffffff !important;
+    font-weight: 400;
+    transition: color 0.3s;
+}
+
+.nav-link:hover {
+    color: #ec6090 !important;
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.8)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+.search-form {
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.search-form input {
+    background-color: #27292a;
+    border: 1px solid #ec6090;
+    color: #ffffff;
+    border-radius: 20px;
+    padding: 5px 15px;
+}
+
+.search-form input:focus {
+    outline: none;
+    border-color: #ec6090;
+    box-shadow: 0 0 5px rgba(236, 96, 144, 0.5);
+}
+
+.hero-section {
+    background: linear-gradient(rgba(31, 33, 34, 0.8), rgba(31, 33, 34, 0.8)), url('https://templatemo.com/templates/templatemo_579_cyborg_gaming/assets/images/banner-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    color: #ffffff;
+    padding: 100px 0;
+    margin-top: 56px; /* Điều chỉnh cho navbar cố định */
+}
+
+.hero-section h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+}
+
+.hero-section p {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+}
+
+.section {
+    padding: 60px 0;
+    background-color: #27292a;
+}
+
+.section h2 {
+    color: #ec6090;
+    font-weight: 600;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.section h3 {
+    color: #ec6090;
+    font-weight: 500;
+    text-align: center;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+button {
+    display: inline-block;
+    width: 150px;
+    height: 50px;
+    border-radius: 10px;
+    border: 1px solid #ec6090;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.5s ease-in;
+    z-index: 1;
+    background: none;
+    cursor: pointer;
+    color: #ec6090;
+}
+
+button::before,
+button::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 100%;
+    transform: skew(15deg);
+    transition: all 0.5s;
+    overflow: hidden;
+    z-index: -1;
+}
+
+button::before {
+    left: -10px;
+    background: #ec6090;
+}
+
+button::after {
+    right: -10px;
+    background: #ff8fb2;
+}
+
+button:hover::before,
+button:hover::after {
+    width: 58%;
+}
+
+button:hover span {
+    color: #ffffff !important;
+    transition: 0.3s;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button span {
+    color: #ec6090 !important;
+    font-size: 18px;
+    transition: all 0.3s ease-in;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+#selected-images {
+    display: flex;
+    overflow-x: auto;
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #1f2122;
+    border: 1px solid #ec6090;
+    border-radius: 5px;
+}
+
+#selected-images img {
+    margin-right: 10px;
+    max-height: 100px;
+    border: 2px solid #ec6090;
+    border-radius: 5px;
+    transition: transform 0.3s ease;
+}
+
+#selected-images img:hover {
+    transform: scale(1.1);
+}
+
+#result-container {
+    background: #1f2122;
+    border: 2px solid #ec6090;
+    border-radius: 5px;
+    padding: 1.5rem;
+    text-align: center;
+    width: 100%;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: auto;
+}
+
+#result-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 5px;
+}
+
+#no-result {
+    margin: 0;
+}
+
+footer {
+    background-color: #1f2122;
+    color: #ffffff;
+    padding: 20px 0;
+    text-align: center;
+}
+
+footer a {
+    color: #ec6090;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+#stitch-btn span {
+    color: #ec6090 !important;
+}
+
+#stitch-btn:hover span {
+    color: #ffffff !important;
+}
+
+#stitch-btn:disabled span {
+    color: #ec6090 !important;
+}
+
+#new-stitch-btn {
+    display: none; /* Ẩn mặc định */
+}
+
+#new-stitch-btn span {
+    color: #ec6090 !important;
+}
+
+#new-stitch-btn:hover span {
+    color: #ffffff !important;
+}

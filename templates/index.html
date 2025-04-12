@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ứng dụng Ghép Ảnh Panorama</title>
+    <!-- Bootstrap 5.2.0 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Phông chữ Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- CSS tùy chỉnh -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">Panorama App</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <form class="search-form mx-auto d-flex">
+                    <input class="form-control me-2" type="search" placeholder="Tìm kiếm" aria-label="Search">
+                </form>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#home">Trang chủ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#upload">Tải lên</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#result">Kết quả</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <section id="home" class="hero-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-6">
+                    <h1>Ứng dụng Ghép Ảnh Panorama</h1>
+                    <p>Tạo ảnh panorama dễ dàng với công nghệ tiên tiến</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="upload" class="section">
+        <div class="container">
+            <h2>Chọn Ảnh Để Ghép</h2>
+            <div class="button-group">
+                <button onclick="document.getElementById('image-upload').click()">
+                    <span>Chọn Ảnh</span>
+                </button>
+                <button id="stitch-btn" disabled>
+                    <span>Ghép Ảnh</span>
+                </button>
+                <button id="new-stitch-btn" style="display: none;">
+                    <span>Ghép Ảnh Mới</span>
+                </button>
+            </div>
+            <input type="file" id="image-upload" accept="image/*" multiple style="display: none;">
+            <h3 class="mt-4">Ảnh Đã Chọn</h3>
+            <div id="selected-images"></div>
+        </div>
+    </section>
+
+    <section id="result" class="section">
+        <div class="container">
+            <h2>Kết Quả Panorama</h2>
+            <div id="result-container">
+                <p id="no-result">Chưa có kết quả</p>
+                <img id="result-image" src="" alt="Panorama Result" style="display: none;">
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>© 2025 Panorama App. All rights reserved. Powered by <a href="https://templatemo.com" target="_blank">TemplateMo</a>.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- JavaScript tùy chỉnh -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
