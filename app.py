@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 import cv2
 import numpy as np
+import os
 import base64
 from io import BytesIO
 
@@ -9,6 +10,93 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     return render_template('index.html')
+
+def stitch_images_sift(images):
+    # Khởi tạo SIFT detector
+    sift = cv2.SIFT_create()
+
+    keypoints = []
+    descriptors = []
+    for img in images:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        kp, des = sift.detectAndCompute(gray, None)
+        keypoints.append(kp)
+        descriptors.append(des)
+
+    # Khởi tạo BFMatcher (Brute-Force Matcher) hoặc FlannBasedMatcher
+    bf = cv2.BFMatcher()
+    matches = []
+    for i in range(len(images) - 1):
+        if descriptors[i] is not None and descriptors[i+1] is not None:
+            these_matches = bf.knnMatch(descriptors[i], descriptors[i+1], k=2)
+            good_matches = []
+            for m, n in these_matches:
+                if m.distance < 0.75 * n.distance:
+                    good_matches.append(m)
+            matches.append(good_matches)
+        else:
+            return None, "Không đủ đặc trưng được tìm thấy trong một hoặc nhiều ảnh."
+
+    if not matches:
+        return None, "Không tìm thấy đủ các cặp điểm tương ứng giữa các ảnh."
+
+    # Lấy keypoint từ các match tốt
+    src_pts = []
+    dst_pts = []
+    for i, good_match in enumerate(matches):
+        if good_match:
+            src_pts_img = np.float32([keypoints[i][m.queryIdx].pt for m in good_match]).reshape(-1, 1, 2)
+            dst_pts_img = np.float32([keypoints[i+1][m.trainIdx].pt for m in good_match]).reshape(-1, 1, 2)
+            src_pts.append(src_pts_img)
+            dst_pts.append(dst_pts_img)
+        else:
+            return None, f"Không tìm thấy đủ match tốt giữa ảnh {i} và {i+1}."
+
+    # Tính toán Homography
+    H_matrices = []
+    for i in range(len(src_pts)):
+        if len(src_pts[i]) >= 4:
+            H, mask = cv2.findHomography(src_pts[i], dst_pts[i], cv2.RANSAC, 5.0)
+            if H is None:
+                return None, f"Không thể tính toán Homography giữa ảnh {i} và {i+1}."
+            H_matrices.append(H)
+        else:
+            return None, f"Không đủ điểm tương ứng để tính toán Homography giữa ảnh {i} và {i+1}."
+
+    if not H_matrices:
+        return None, "Không có ma trận Homography nào được tính toán."
+
+    # Ghép ảnh (đơn giản hóa cho trường hợp 2 ảnh)
+    if len(images) == 2 and len(H_matrices) == 1:
+        h1, w1 = images[0].shape[:2]
+        h2, w2 = images[1].shape[:2]
+
+        # Lấy các góc của ảnh đầu tiên và transform chúng
+        pts1 = np.float32([[0, 0], [0, h1 - 1], [w1 - 1, h1 - 1], [w1 - 1, 0]]).reshape(-1, 1, 2)
+        dst = cv2.perspectiveTransform(pts1, H_matrices[0])
+
+        # Tính toán kích thước panorama
+        [x_min, y_min] = np.int32(dst.min(axis=0).ravel() - 0.5)
+        [x_max, y_max] = np.int32(dst.max(axis=0).ravel() + 0.5)
+        translation_dist = [-x_min, -y_min]
+        H_translation = np.array([[1, 0, translation_dist[0]], [0, 1, translation_dist[1]], [0, 0, 1]])
+
+        # Warp ảnh thứ hai
+        warped_img2 = cv2.warpPerspective(images[1], H_matrices[0], (x_max - x_min + w1, y_max - y_min + h1))
+
+        # Tạo canvas lớn hơn và đặt ảnh đầu tiên vào
+        pano = np.zeros((y_max - y_min + h1, x_max - x_min + w1, 3), dtype=np.uint8)
+        pano[translation_dist[1]:h1 + translation_dist[1], translation_dist[0]:w1 + translation_dist[0]] = images[0]
+
+        # Kết hợp hai ảnh
+        non_black_mask = np.any(warped_img2 > 0, axis=-1)
+        pano[non_black_mask] = warped_img2[non_black_mask]
+
+        return pano, None
+    elif len(images) > 2:
+        return None, "Ghép nhiều hơn 2 ảnh bằng SIFT cần một quy trình phức tạp hơn (ví dụ: tìm đồ thị ghép, ghép từng cặp)."
+    else:
+        return None, "Cần ít nhất hai ảnh để ghép."
 
 @app.route('/upload', methods=['POST'])
 def upload_images():
@@ -27,107 +115,28 @@ def upload_images():
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if img is None:
                 return jsonify({'error': f'Không thể đọc ảnh: {file.filename}'})
-            
-            # Giảm kích thước ảnh nếu quá lớn
-            max_height = 600
-            if img.shape[0] > max_height:
-                scale = max_height / img.shape[0]
-                img = cv2.resize(img, None, fx=scale, fy=scale)
             images.append(img)
 
     try:
-        # Khởi tạo SIFT
-        sift = cv2.SIFT_create()
+        pano, error_msg = stitch_images_sift(images)
 
-        # Ghép từng cặp ảnh liên tiếp
-        result = images[0]  # Bắt đầu với ảnh đầu tiên
-        for i in range(1, len(images)):
-            img1 = result
-            img2 = images[i]
+        if error_msg:
+            return jsonify({'error': error_msg})
 
-            # Phát hiện và mô tả đặc trưng bằng SIFT
-            keypoints1, descriptors1 = sift.detectAndCompute(img1, None)
-            keypoints2, descriptors2 = sift.detectAndCompute(img2, None)
+        if pano is None:
+            return jsonify({'error': 'Không thể ghép ảnh.'})
 
-            if descriptors1 is None or descriptors2 is None or len(descriptors1) < 4 or len(descriptors2) < 4:
-                return jsonify({'error': 'Không đủ đặc trưng để ghép ảnh. Vui lòng chọn các ảnh có vùng chồng lấn rõ ràng (ít nhất 20-30%) và chứa các chi tiết nổi bật (như góc cạnh, họa tiết). Hãy thử chụp lại với góc quay nhẹ (10-20 độ) giữa các ảnh.'})
+        # Lưu ảnh tạm thời vào /tmp
+        temp_path = '/tmp/result.jpg'
+        cv2.imwrite(temp_path, pano)
 
-            # Khớp đặc trưng bằng Brute-Force Matcher
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
-            matches = bf.knnMatch(descriptors1, descriptors2, k=2)
+        # Đọc ảnh và chuyển thành base64
+        with open(temp_path, 'rb') as f:
+            image_data = f.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
 
-            # Áp dụng ratio test để lọc các khớp tốt
-            good_matches = []
-            for m, n in matches:
-                if m.distance < 0.75 * n.distance:
-                    good_matches.append(m)
-
-            if len(good_matches) < 4:
-                return jsonify({'error': 'Không đủ khớp đặc trưng để ghép ảnh. Vui lòng chọn các ảnh có vùng chồng lấn rõ ràng (ít nhất 20-30%) và chứa các chi tiết nổi bật (như góc cạnh, họa tiết). Hãy thử chụp lại với góc quay nhẹ (10-20 độ) giữa các ảnh.'})
-
-            # Trích xuất các điểm khớp
-            src_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-            dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-
-            # Ước lượng ma trận homography
-            H, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-
-            if H is None:
-                return jsonify({'error': 'Không thể ước lượng homography. Vui lòng chọn các ảnh có vùng chồng lấn rõ ràng (ít nhất 20-30%) và chứa các chi tiết nổi bật (như góc cạnh, họa tiết). Hãy thử chụp lại với góc quay nhẹ (10-20 độ) giữa các ảnh.'})
-
-            # Tính kích thước ảnh kết quả
-            h1, w1 = img1.shape[:2]
-            h2, w2 = img2.shape[:2]
-            corners1 = np.float32([[0, 0], [0, h1], [w1, h1], [w1, 0]]).reshape(-1, 1, 2)
-            corners2 = np.float32([[0, 0], [0, h2], [w2, h2], [w2, 0]]).reshape(-1, 1, 2)
-            corners2_transformed = cv2.perspectiveTransform(corners2, H)
-            corners = np.concatenate((corners1, corners2_transformed), axis=0)
-
-            # Tính kích thước ảnh panorama
-            [x_min, y_min] = np.int32(corners.min(axis=0).ravel())
-            [x_max, y_max] = np.int32(corners.max(axis=0).ravel())
-            output_width = x_max - x_min
-            output_height = y_max - y_min
-
-            # Kiểm tra kích thước đầu ra hợp lệ
-            if output_width <= 0 or output_height <= 0:
-                return jsonify({'error': 'Kích thước ảnh panorama không hợp lệ. Vui lòng kiểm tra lại ảnh đầu vào và đảm bảo chúng có vùng chồng lấn rõ ràng.'})
-
-            translation_mat = np.array([[1, 0, -x_min], [0, 1, -y_min], [0, 0, 1]], dtype=np.float32)
-
-            # Biến đổi ảnh
-            img1_warped = cv2.warpPerspective(img1, translation_mat, (output_width, output_height))
-            H_trans = translation_mat @ H
-            img2_warped = cv2.warpPerspective(img2, H_trans, (output_width, output_height))
-
-            # Kiểm tra xem ảnh biến đổi có dữ liệu không
-            if not np.any(img1_warped) or not np.any(img2_warped):
-                return jsonify({'error': 'Ảnh sau khi biến đổi không chứa dữ liệu. Ma trận homography có thể không chính xác. Vui lòng chọn các ảnh có vùng chồng lấn rõ ràng hơn.'})
-
-            # Tạo mask để xác định vùng chứa nội dung
-            mask1 = np.any(img1_warped > 0, axis=2).astype(np.uint8) * 255
-            mask2 = np.any(img2_warped > 0, axis=2).astype(np.uint8) * 255
-
-            # Tìm vùng chồng lấn
-            overlap = cv2.bitwise_and(mask1, mask2)
-
-            # Ghép ảnh: ưu tiên img2_warped ở vùng chồng lấn
-            result = np.zeros_like(img1_warped)
-            result[mask1 > 0] = img1_warped[mask1 > 0]  # Ghi img1_warped trước
-            result[mask2 > 0] = img2_warped[mask2 > 0]  # Ghi đè img2_warped (bao gồm vùng chồng lấn)
-
-            # Pha trộn vùng chồng lấn (nếu cần)
-            overlap_indices = overlap > 0
-            if np.any(overlap_indices):
-                alpha = 0.5
-                result[overlap_indices] = cv2.addWeighted(
-                    img1_warped[overlap_indices], alpha, 
-                    img2_warped[overlap_indices], 1 - alpha, 0
-                )
-
-        # Chuyển ảnh thành base64
-        _, buffer = cv2.imencode('.jpg', result)
-        image_base64 = base64.b64encode(buffer).decode('utf-8')
+        # Xóa tệp tạm
+        os.remove(temp_path)
 
         # Trả về dữ liệu base64
         return jsonify({'result': f'data:image/jpeg;base64,{image_base64}'})
