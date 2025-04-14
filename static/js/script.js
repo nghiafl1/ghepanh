@@ -64,6 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 body: formData
             });
+
+            // Kiểm tra trạng thái phản hồi
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Phản hồi không thành công: ${response.status} - ${errorText}`);
+            }
+
             const data = await response.json();
             
             if (data.error) {
@@ -79,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             newStitchBtn.style.display = 'inline-block';
         } catch (error) {
+            console.error('Lỗi:', error);
             noResult.textContent = 'Đã xảy ra lỗi: ' + error.message;
             noResult.style.color = '#ff4d4d';
             newStitchBtn.style.display = 'inline-block';
