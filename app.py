@@ -86,31 +86,37 @@ def upload_images():
             # Tính kích thước ảnh panorama
             [x_min, y_min] = np.int32(corners.min(axis=0).ravel())
             [x_max, y_max] = np.int32(corners.max(axis=0).ravel())
+            output_width = x_max - x_min
+            output_height = y_max - y_min
+
+            # Kiểm tra kích thước đầu ra hợp lệ
+            if output_width <= 0 or output_height <= 0:
+                return jsonify({'error': 'Kích thước ảnh panorama không hợp lệ. Vui lòng kiểm tra lại ảnh đầu vào và đảm bảo chúng có vùng chồng lấn rõ ràng.'})
+
             translation_mat = np.array([[1, 0, -x_min], [0, 1, -y_min], [0, 0, 1]], dtype=np.float32)
 
-            # Biến đổi ảnh và ghép
-            img1_warped = cv2.warpPerspective(img1, translation_mat, (x_max - x_min, y_max - y_min))
+            # Biến đổi ảnh
+            img1_warped = cv2.warpPerspective(img1, translation_mat, (output_width, output_height))
             H_trans = translation_mat @ H
-            img2_warped = cv2.warpPerspective(img2, H_trans, (x_max - x_min, y_max - y_min))
+            img2_warped = cv2.warpPerspective(img2, H_trans, (output_width, output_height))
 
-            # Tạo mask để pha trộn ảnh
-            mask1 = (img1_warped > 0).astype(np.uint8)
-            mask2 = (img2_warped > 0).astype(np.uint8)
-            
-            # Nhị phân hóa mask để đảm bảo giá trị 0 hoặc 255
-            _, mask1 = cv2.threshold(mask1, 1, 255, cv2.THRESH_BINARY)
-            _, mask2 = cv2.threshold(mask2, 1, 255, cv2.THRESH_BINARY)
-            
+            # Kiểm tra xem ảnh biến đổi có dữ liệu không
+            if not np.any(img1_warped) or not np.any(img2_warped):
+                return jsonify({'error': 'Ảnh sau khi biến đổi không chứa dữ liệu. Ma trận homography có thể không chính xác. Vui lòng chọn các ảnh có vùng chồng lấn rõ ràng hơn.'})
+
+            # Tạo mask để xác định vùng chứa nội dung
+            mask1 = np.any(img1_warped > 0, axis=2).astype(np.uint8) * 255
+            mask2 = np.any(img2_warped > 0, axis=2).astype(np.uint8) * 255
+
+            # Tìm vùng chồng lấn
             overlap = cv2.bitwise_and(mask1, mask2)
-            mask1 = cv2.bitwise_and(mask1, cv2.bitwise_not(overlap))
-            mask2 = cv2.bitwise_and(mask2, cv2.bitwise_not(overlap))
 
-            # Ghép ảnh
+            # Ghép ảnh: ưu tiên img2_warped ở vùng chồng lấn
             result = np.zeros_like(img1_warped)
-            result[mask1 > 0] = img1_warped[mask1 > 0]
-            result[mask2 > 0] = img2_warped[mask2 > 0]
+            result[mask1 > 0] = img1_warped[mask1 > 0]  # Ghi img1_warped trước
+            result[mask2 > 0] = img2_warped[mask2 > 0]  # Ghi đè img2_warped (bao gồm vùng chồng lấn)
 
-            # Pha trộn vùng chồng lấn (linear blending)
+            # Pha trộn vùng chồng lấn (nếu cần)
             overlap_indices = overlap > 0
             if np.any(overlap_indices):
                 alpha = 0.5
