@@ -29,7 +29,7 @@ def upload_images():
                 return jsonify({'error': f'Không thể đọc ảnh: {file.filename}'})
             
             # Giảm kích thước ảnh nếu quá lớn
-            max_height = 600  # Giảm để tối ưu
+            max_height = 600
             if img.shape[0] > max_height:
                 scale = max_height / img.shape[0]
                 img = cv2.resize(img, None, fx=scale, fy=scale)
@@ -53,7 +53,7 @@ def upload_images():
                 return jsonify({'error': 'Không đủ đặc trưng để ghép ảnh. Vui lòng chọn các ảnh có vùng chồng lấn rõ ràng (ít nhất 20-30%) và chứa các chi tiết nổi bật (như góc cạnh, họa tiết). Hãy thử chụp lại với góc quay nhẹ (10-20 độ) giữa các ảnh.'})
 
             # Khớp đặc trưng bằng Brute-Force Matcher
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)  # SIFT sử dụng NORM_L2
+            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
             matches = bf.knnMatch(descriptors1, descriptors2, k=2)
 
             # Áp dụng ratio test để lọc các khớp tốt
@@ -94,22 +94,30 @@ def upload_images():
             img2_warped = cv2.warpPerspective(img2, H_trans, (x_max - x_min, y_max - y_min))
 
             # Tạo mask để pha trộn ảnh
-            mask1 = (img1_warped > 0).astype(np.uint8) * 255
-            mask2 = (img2_warped > 0).astype(np.uint8) * 255
+            mask1 = (img1_warped > 0).astype(np.uint8)
+            mask2 = (img2_warped > 0).astype(np.uint8)
+            
+            # Nhị phân hóa mask để đảm bảo giá trị 0 hoặc 255
+            _, mask1 = cv2.threshold(mask1, 1, 255, cv2.THRESH_BINARY)
+            _, mask2 = cv2.threshold(mask2, 1, 255, cv2.THRESH_BINARY)
+            
             overlap = cv2.bitwise_and(mask1, mask2)
             mask1 = cv2.bitwise_and(mask1, cv2.bitwise_not(overlap))
             mask2 = cv2.bitwise_and(mask2, cv2.bitwise_not(overlap))
 
-            # Ghép ảnh (không pha trộn phức tạp để tối ưu hiệu suất)
+            # Ghép ảnh
             result = np.zeros_like(img1_warped)
-            result = cv2.bitwise_or(result, cv2.bitwise_and(img1_warped, mask1))
-            result = cv2.bitwise_or(result, cv2.bitwise_and(img2_warped, mask2))
-            
+            result[mask1 > 0] = img1_warped[mask1 > 0]
+            result[mask2 > 0] = img2_warped[mask2 > 0]
+
             # Pha trộn vùng chồng lấn (linear blending)
-            overlap_area = cv2.bitwise_and(img1_warped, img2_warped, mask=overlap)
-            alpha = 0.5
-            overlap_area = cv2.addWeighted(img1_warped, alpha, img2_warped, 1 - alpha, 0, mask=overlap)
-            result = cv2.bitwise_or(result, overlap_area)
+            overlap_indices = overlap > 0
+            if np.any(overlap_indices):
+                alpha = 0.5
+                result[overlap_indices] = cv2.addWeighted(
+                    img1_warped[overlap_indices], alpha, 
+                    img2_warped[overlap_indices], 1 - alpha, 0
+                )
 
         # Chuyển ảnh thành base64
         _, buffer = cv2.imencode('.jpg', result)
